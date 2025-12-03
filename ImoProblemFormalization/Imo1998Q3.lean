@@ -6,6 +6,10 @@ import Mathlib
 For any positive integer `n`, let `d(n)` denote the number of positive divisors
 of `n` (including `1` and `n` itself). Determine all positive integers `k` such that
 `d(n^2)/d(n) = k` for some `n`.
+
+The answer to this problem is every odd number, so to formalize this in Lean,
+we must prove that if a `k` satisfies `d(n^2)/d(n) = k` for some `n`, then
+`k` is odd, and also if `k` is odd, then it satisfies `d(n^2)/d(n) = k` for some `n`.
 -/
 
 namespace Imo1998Q3
@@ -131,6 +135,13 @@ lemma exists_distinct_primes (t n : ℕ)
                                          Nat.Coprime i n) := by
   sorry
 
+lemma telescoping_product_identity (t j : ℕ) (hj : j ≠ 0) :
+                              let num (i : ℕ) := (2 * (2^i * j - 1) + 1 : ℚ)
+                              let den (i : ℕ) := ((2^i * j - 1) + 1 : ℚ)
+                              (List.range t).map (fun i ↦ num i / den i) |>.prod =
+                              (2^t * j - 1 : ℚ) / j := by
+  sorry
+
 -- We then prove that every odd number satisifies the equation.
 theorem odd_k_satisfies (k : ℕ)
                         (hkodd : k % 2 = 1) :
@@ -147,33 +158,80 @@ theorem odd_k_satisfies (k : ℕ)
         { let kk := k_minus_1 + 1
           let t := (kk + 1).factorization 2
           let j := (kk + 1) / (2 ^ t)
+          have h_div : 2 ^ t ∣ (kk + 1) := by
+            exact Nat.ordProj_dvd (kk + 1) 2
           have hjodd : Odd j := by
-            sorry
+            have hordcompl : j = ordCompl[2] (kk + 1) := by
+              rfl
+            have htwondvd := @Nat.not_dvd_ordCompl
+                              (kk + 1) _ (Nat.prime_two) (by grind)
+            have htwondvdj : ¬ 2 ∣ j := by
+              rw [hordcompl]
+              exact htwondvd
+            exact Nat.odd_iff.mpr (Nat.two_dvd_ne_zero.mp htwondvdj)
           have hjltkk : j < kk := by
-            sorry
-          have hjasfrac := ih j hjltkk (Nat.odd_iff.mp hjodd)
-          obtain ⟨nⱼ, hnⱼ⟩ := hjasfrac
+            have hkkge2 : kk ≥ 2 := by grind
+            have h2le2t : 2 ≤ 2 ^ t := by
+              have htpos : 0 < t := by
+                exact Nat.Prime.factorization_pos_of_dvd (by decide) (by simp) (by grind)
+              refine Nat.le_self_pow ?_ 2
+              linarith
+            have hkkeqjt : kk + 1 = j * 2 ^ t := by
+              exact Nat.eq_mul_of_div_eq_left h_div rfl
+            have hbound : kk + 1 ≥ 2 * j := calc
+              kk + 1 = j * 2^t := hkkeqjt
+              _      ≥ j * 2   := Nat.mul_le_mul_left j h2le2t
+              _      = 2 * j   := mul_comm _ _
+            omega
+          have hjworks := ih j hjltkk (Nat.odd_iff.mp hjodd)
+          obtain ⟨nⱼ, hnⱼ⟩ := hjworks
           let kfac := kk.factorization
           obtain ⟨ps, hps⟩ := exists_distinct_primes t nⱼ kfac.support.toList (by aesop)
           let exps := (List.range t).map (fun i ↦ 2^i * j - 1)
           let xf := (ps.zip exps).foldl (fun acc (p, e) ↦ acc + Finsupp.single p e) 0
-          let x := xf.prod fun x a ↦ (x ^ a)
-          have hneqdx2 : ((List.range t).map (fun i ↦ (2 ^ (i + 1)) * j - 1)).prod =
-                            d (x ^ 2) := calc
-                ((List.range t).map (fun i ↦ (2 ^ (i + 1)) * j - 1)).prod
-                _ = ((List.range t).map (fun i ↦ 2 * (2 ^ i) * j - 1)).prod := by
-                  sorry
-                _ = ((List.range t).map (fun i ↦ 2 * ((2 ^ i) * j - 1) + 1)).prod := by
-                  sorry
-                _ = d (x ^ 2) := by
-                  sorry
-          have hneqdx : ((List.range t).map (fun i ↦ (2 ^ i) * j)).prod =
-                            d x := calc
-                ((List.range t).map (fun i ↦ (2 ^ i) * j)).prod
-                _ = ((List.range t).map (fun i ↦ ((2 ^ i) * j - 1) + 1)).prod := by
-                  sorry
-                _ = d x := by
-                  sorry
+          let x := xf.prod fun p a ↦ (p ^ a)
+          have hxnⱼcoprime : Nat.Coprime x nⱼ := by
+            sorry
+          have hxneq0 : x ≠ 0 := by
+            apply Finsupp.prod_ne_zero_iff.mpr
+            intro p hp
+            apply pow_ne_zero
+            dsimp [xf] at hp
+            have h_mem : p ∈ List.map Prod.fst (ps.zip exps) := by
+              refine List.mem_map.mpr ?_
+              sorry
+            have hpprime : Nat.Prime p := by
+              rw [List.mem_map] at h_mem
+              obtain ⟨⟨p', e'⟩, h_in_zip, rfl⟩ := h_mem
+              dsimp at hp
+              simp
+              have hpinps : (p' ∈ ps) := by
+                exact (List.of_mem_zip h_in_zip).left
+              exact (hps p' hpinps).left
+            exact Nat.Prime.ne_zero hpprime
+          have hneqdx : d x = ((List.range t).map (fun i ↦ (2 ^ i) * j)).prod := by
+            rw [d_eq_dComputed, dComputed]
+            rw [if_neg hxneq0]
+            sorry
+          have hneqdx2 : d (x ^ 2) = ((List.range t).map (fun i ↦ (2 ^ (i + 1) * j - 1))).prod := by
+            rw [d_n2 x hxneq0]
+            sorry
+          -- have hneqdx2 : ((List.range t).map (fun i ↦ (2 ^ (i + 1)) * j - 1)).prod =
+          --                   d (x ^ 2) := calc
+          --       ((List.range t).map (fun i ↦ (2 ^ (i + 1)) * j - 1)).prod
+          --       _ = ((List.range t).map (fun i ↦ 2 * (2 ^ i) * j - 1)).prod := by
+          --         sorry
+          --       _ = ((List.range t).map (fun i ↦ 2 * ((2 ^ i) * j - 1) + 1)).prod := by
+          --         sorry
+          --       _ = d (x ^ 2) := by
+          --         sorry
+          -- have hneqdx : ((List.range t).map (fun i ↦ (2 ^ i) * j)).prod =
+          --                   d x := calc
+          --       ((List.range t).map (fun i ↦ (2 ^ i) * j)).prod
+          --       _ = ((List.range t).map (fun i ↦ ((2 ^ i) * j - 1) + 1)).prod := by
+          --         sorry
+          --       _ = d x := by
+          --         sorry
           have hdvd : d (x ^ 2) / d x = ((2 ^ t) * j - 1) / j := calc
                 d (x ^ 2) / d x
                 _ = (((List.range t).map (fun i ↦ (2 ^ (i + 1)) * j - 1)).prod) /
@@ -184,6 +242,27 @@ theorem odd_k_satisfies (k : ℕ)
                   sorry
                 _ = ((2 ^ t) * j - 1) / j := by
                   sorry
+          use nⱼ * x
+          have hdx2 : d ((nⱼ * x) ^ 2) = (d (nⱼ ^ 2)) * (d (x ^ 2)) := by
+            sorry
+          have hdx : d (nⱼ * x) = (d nⱼ) * (d x) := by
+            sorry
+          rw [hdx2, hdx]
+          have hkj : k_minus_1 + 1 = (2 ^ t) * j - 1 := by
+            simp [j, kk]
+            have hkj2 : 2 ^ t * ((k_minus_1 + 2) / 2 ^ t) =
+                          (k_minus_1 + 1 + 1) := by
+              apply Nat.mul_div_cancel'
+              exact h_div
+            rw [hkj2]
+            simp
+          rw [hkj]
+          have hnⱼprodxneq0 : nⱼ * x ≠ 0 := by
+            rw [mul_ne_zero_iff]
+            exact And.intro hnⱼ.left hxneq0
+          refine ⟨hnⱼprodxneq0, ?_⟩
+          have halmost : d (x ^ 2) * j = (2 ^ t * j - 1) * (d x) := by
+            sorry
           sorry
         }
       }
