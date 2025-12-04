@@ -63,7 +63,7 @@ lemma d_n2 (n : ℕ) (hn : n ≠ 0) : d (n ^ 2) =
   { aesop }
 
 -- Proof that if every number in a list is odd, the product of the list is odd.
-lemma h_list_prod_odd : ∀ (l : List ℕ), (∀ x ∈ l, Odd x) → Odd l.prod := by
+lemma list_prod_odd : ∀ (l : List ℕ), (∀ x ∈ l, Odd x) → Odd l.prod := by
   intro l
   induction l with
   | nil => simp
@@ -117,7 +117,7 @@ theorem k_is_odd (k : ℕ)
         rw [Finset.prod_eq_multiset_prod]
         aesop
       rw [h_eq]
-      exact h_list_prod_odd powers hallodd
+      exact list_prod_odd powers hallodd
     rw [hd]
     exact Nat.odd_iff.mp hoddmul
   rw [hn.right] at hdn2odd
@@ -129,10 +129,11 @@ lemma exists_distinct_primes (t n : ℕ)
                              (primes : List ℕ)
                              (hallprime : ∀ p ∈ primes, Nat.Prime p) :
                              (∃ l : List ℕ,
-                                ∀ i ∈ l, Nat.Prime i ∧
+                                (∀ i ∈ l, Nat.Prime i ∧
                                          i ∉ primes ∧
+                                         Nat.Coprime i n) ∧
                                          List.length l = t ∧
-                                         Nat.Coprime i n) := by
+                                         List.Nodup l) := by
   sorry
 
 lemma telescoping_product_identity (t j : ℕ) (hj : j ≠ 0) :
@@ -141,6 +142,24 @@ lemma telescoping_product_identity (t j : ℕ) (hj : j ≠ 0) :
                               (List.range t).map (fun i ↦ num i / den i) |>.prod =
                               (2^t * j - 1 : ℚ) / j := by
   sorry
+
+lemma repeated_multiplicity_of_d : ∀ (l : List ℕ)
+                    (_hcoprime : l.Pairwise Nat.Coprime),
+                    d (l.prod) = (List.map (fun i ↦ d i) l).prod := by
+  intro l
+  induction l with
+  | nil => simp [d]
+  | cons head tail ih =>
+      intro hcoprime
+      rw [List.pairwise_cons] at hcoprime
+      obtain ⟨hhead, htail⟩ := hcoprime
+      simp only [List.prod_cons, List.map_cons]
+      rw [d_multiplicative]
+      { rw [ih]
+        exact htail }
+      { apply Nat.coprime_list_prod_right_iff.mpr
+        intro n hnintail
+        exact hhead n hnintail }
 
 -- We then prove that every odd number satisifies the equation.
 theorem odd_k_satisfies (k : ℕ)
@@ -188,50 +207,102 @@ theorem odd_k_satisfies (k : ℕ)
           let kfac := kk.factorization
           obtain ⟨ps, hps⟩ := exists_distinct_primes t nⱼ kfac.support.toList (by aesop)
           let exps := (List.range t).map (fun i ↦ 2^i * j - 1)
-          let xf := (ps.zip exps).foldl (fun acc (p, e) ↦ acc + Finsupp.single p e) 0
-          let x := xf.prod fun p a ↦ (p ^ a)
+          let x := ((ps.zip exps).map (fun (p, e) ↦ p ^ e)).prod
           have hxnⱼcoprime : Nat.Coprime x nⱼ := by
             sorry
           have hxneq0 : x ≠ 0 := by
-            apply Finsupp.prod_ne_zero_iff.mpr
-            intro p hp
+            dsimp only [x]
+            apply List.prod_ne_zero
+            apply mt List.mem_map.mp
+            simp only [not_exists, not_and]
+            intro (p, k) hpk
             apply pow_ne_zero
-            dsimp [xf] at hp
-            have h_mem : p ∈ List.map Prod.fst (ps.zip exps) := by
-              refine List.mem_map.mpr ?_
-              sorry
-            have hpprime : Nat.Prime p := by
-              rw [List.mem_map] at h_mem
-              obtain ⟨⟨p', e'⟩, h_in_zip, rfl⟩ := h_mem
-              dsimp at hp
-              simp
-              have hpinps : (p' ∈ ps) := by
-                exact (List.of_mem_zip h_in_zip).left
-              exact (hps p' hpinps).left
-            exact Nat.Prime.ne_zero hpprime
+            apply Nat.Prime.ne_zero
+            exact (hps.left (p, k).1 (List.of_mem_zip hpk).left).left
           have hneqdx : d x = ((List.range t).map (fun i ↦ (2 ^ i) * j)).prod := by
-            rw [d_eq_dComputed, dComputed]
-            rw [if_neg hxneq0]
-            sorry
+            dsimp only [x]
+            rw [repeated_multiplicity_of_d (List.map (fun x ↦ x.1 ^ x.2) (ps.zip exps))]
+            { apply congr_arg List.prod
+              apply List.ext_get
+              { rw [List.length_map, List.length_map, List.length_map]
+                rw [List.length_zip, min_eq_left]
+                { rw [hps.right.left]
+                  simp }
+                { rw [hps.right.left]
+                  dsimp [exps]
+                  simp } }
+              { intro n hind1 hind2
+                have hnltexpslen : n < exps.length := by
+                  dsimp [exps]
+                  have hleneq : exps.length =
+                            (List.map (fun i ↦ 2 ^ i * j) (List.range t)).length := by
+                    rw [List.length_map, List.length_map]
+                  rw [hleneq]
+                  exact hind2
+                simp
+                have hexpsn : exps[n]'hnltexpslen = 2 ^ n * j - 1 := by
+                  grind
+                rw [hexpsn]
+                have hnltpslen : n < ps.length := by
+                  have hleneq2 :
+                    (List.map (fun i ↦ d i) (List.map (fun x ↦ x.1 ^ x.2) (ps.zip exps))).length
+                     = ps.length := by
+                    rw [List.length_map, List.length_map]
+                    rw [List.length_zip, min_eq_left]
+                    rw [hps.right.left]
+                    dsimp [exps]
+                    simp
+                  rw [hleneq2.symm]
+                  exact hind1
+                have hpsnprime : Nat.Prime (ps[n]'hnltpslen) := by
+                  have hpsninps : ps[n] ∈ ps := by
+                    exact List.get_mem ps ⟨n, hnltpslen⟩
+                  exact (hps.left ps[n] hpsninps).left
+                have hclose := @prime_power_divisors ps[n] (2 ^ n * j - 1) hpsnprime
+                rw [hclose]
+                rw [Nat.sub_add_cancel]
+                apply one_le_mul_of_one_le_of_one_le
+                { exact Nat.one_le_two_pow }
+                { exact hjodd.pos } } }
+            { apply List.Nodup.pairwise_of_forall_ne
+              { sorry }
+              { intro a ha b hb haneqb
+                rw [List.mem_map] at ha
+                obtain ⟨⟨p₁, k₁⟩, ha'⟩ := ha
+                rw [List.mem_map] at hb
+                obtain ⟨⟨p₂, k₂⟩, hb'⟩ := hb
+                simp at ha' hb'
+                have hp₁inps : p₁ ∈ ps := by
+                    exact (List.of_mem_zip ha'.left).left
+                have hp₁prime : Nat.Prime p₁ := by
+                  exact ((hps.left p₁) hp₁inps).left
+                have hp₂inps : p₂ ∈ ps := by
+                    exact (List.of_mem_zip hb'.left).left
+                have hp₂prime : Nat.Prime p₂ := by
+                  exact ((hps.left p₂) hp₂inps).left
+                rw [ha'.right.symm, hb'.right.symm]
+                apply Nat.coprime_pow_primes k₁ k₂ hp₁prime hp₂prime
+                have hpowsneq : p₁ ^ k₁ ≠ p₂ ^ k₂ := by
+                  rw [ha'.right, hb'.right]
+                  exact haneqb
+                intro hcon
+                have hp₁k₁zip : (p₁, k₁) ∈ ps.zip exps := ha'.left
+                have hp₂k₂zip : (p₂, k₂) ∈ ps.zip exps := hb'.left
+                have h_k_eq : k₁ = k₂ := by
+                  have h_nodup : ps.Nodup := hps.right.right
+                  have h_lookup1 : List.lookup p₁ (ps.zip exps) = some k₁ := by
+                    sorry
+                  have h_lookup2 : List.lookup p₂ (ps.zip exps) = some k₂ := by
+                    sorry
+                  rw [hcon] at h_lookup1
+                  rw [h_lookup1] at h_lookup2
+                  injection h_lookup2
+                subst hcon h_k_eq
+                contradiction }
+               }
           have hneqdx2 : d (x ^ 2) = ((List.range t).map (fun i ↦ (2 ^ (i + 1) * j - 1))).prod := by
-            rw [d_n2 x hxneq0]
+            dsimp only [x]
             sorry
-          -- have hneqdx2 : ((List.range t).map (fun i ↦ (2 ^ (i + 1)) * j - 1)).prod =
-          --                   d (x ^ 2) := calc
-          --       ((List.range t).map (fun i ↦ (2 ^ (i + 1)) * j - 1)).prod
-          --       _ = ((List.range t).map (fun i ↦ 2 * (2 ^ i) * j - 1)).prod := by
-          --         sorry
-          --       _ = ((List.range t).map (fun i ↦ 2 * ((2 ^ i) * j - 1) + 1)).prod := by
-          --         sorry
-          --       _ = d (x ^ 2) := by
-          --         sorry
-          -- have hneqdx : ((List.range t).map (fun i ↦ (2 ^ i) * j)).prod =
-          --                   d x := calc
-          --       ((List.range t).map (fun i ↦ (2 ^ i) * j)).prod
-          --       _ = ((List.range t).map (fun i ↦ ((2 ^ i) * j - 1) + 1)).prod := by
-          --         sorry
-          --       _ = d x := by
-          --         sorry
           have hdvd : d (x ^ 2) / d x = ((2 ^ t) * j - 1) / j := calc
                 d (x ^ 2) / d x
                 _ = (((List.range t).map (fun i ↦ (2 ^ (i + 1)) * j - 1)).prod) /
