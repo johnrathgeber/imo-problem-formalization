@@ -126,15 +126,66 @@ theorem k_is_odd (k : ℕ)
   exact Nat.odd_iff.mp hkodd
 
 lemma exists_distinct_primes (t n : ℕ)
-                             (primes : List ℕ)
-                             (hallprime : ∀ p ∈ primes, Nat.Prime p) :
+                             (hnneq0 : n ≠ 0)
+                             (primes : List ℕ) :
                              (∃ l : List ℕ,
                                 (∀ i ∈ l, Nat.Prime i ∧
                                          i ∉ primes ∧
                                          Nat.Coprime i n) ∧
                                          List.length l = t ∧
                                          List.Nodup l) := by
-  sorry
+  induction t with
+  | zero =>
+      use []
+      simp
+  | succ t ih =>
+      obtain ⟨l, props⟩ := ih
+      let existing_numbers := (primes ++ l ++ [n])
+      let bound := existing_numbers.max (by aesop)
+      have hexists := Nat.exists_infinite_primes (bound + 1)
+      obtain ⟨new, hnew⟩ := hexists
+      have hnewgtbound : new > bound := by linarith
+      have hnewprime : Nat.Prime new := hnew.right
+      use l ++ [new]
+      apply And.intro
+      { intro i hiinlist
+        simp at hiinlist
+        cases hiinlist with
+        | inl h => grind
+        | inr h =>
+            rw [h]
+            have hnewnotinprimes : new ∉ primes := by
+              intro hin
+              have hnewlebound : new ≤ bound := by
+                have hnewinexisting : new ∈ existing_numbers := by grind
+                have hnewlemax := List.le_max_of_mem
+                                      (l := existing_numbers) hnewinexisting
+                simp [bound]
+                exact hnewlemax
+              linarith [hnewlebound, hnewgtbound]
+            have hnewcoprimen : new.Coprime n := by
+              refine Nat.coprime_of_lt_prime hnneq0 ?_ hnewprime
+              have hnleqbound : n ≤ bound := by
+                simp [bound]
+                have hninexisting : n ∈ existing_numbers := by grind
+                exact List.le_max_of_mem hninexisting
+              linarith
+            exact And.intro hnewprime (And.intro hnewnotinprimes hnewcoprimen) }
+      { apply And.intro
+        { grind }
+        { have halmost : (new :: l).Nodup := by
+            refine List.nodup_cons.mpr (And.intro ?_ props.right.right)
+            intro hnewinl
+            have hnewinexisting : new ∈ existing_numbers := by
+              simp [existing_numbers]
+              right
+              left
+              exact hnewinl
+            have hle : new ≤ bound := by
+              simp [bound]
+              exact List.le_max_of_mem hnewinexisting
+            linarith
+          grind } }
 
 lemma telescoping_product_identity (t j : ℕ) (hj : j ≠ 0) :
                               let num (i : ℕ) := (2 * (2^i * j - 1) + 1 : ℚ)
@@ -161,7 +212,7 @@ lemma repeated_multiplicity_of_d : ∀ (l : List ℕ)
         intro n hnintail
         exact hhead n hnintail }
 
--- We then prove that every odd number satisifies the equation.
+-- We now prove that every odd number satisifies the equation.
 theorem odd_k_satisfies (k : ℕ)
                         (hkodd : k % 2 = 1) :
                         (∃ n : ℕ, n ≠ 0 ∧ d (n ^ 2) = k * d n) := by
@@ -205,11 +256,20 @@ theorem odd_k_satisfies (k : ℕ)
           have hjworks := ih j hjltkk (Nat.odd_iff.mp hjodd)
           obtain ⟨nⱼ, hnⱼ⟩ := hjworks
           let kfac := kk.factorization
-          obtain ⟨ps, hps⟩ := exists_distinct_primes t nⱼ kfac.support.toList (by aesop)
+          obtain ⟨ps, hps⟩ := exists_distinct_primes t nⱼ hnⱼ.left kfac.support.toList
           let exps := (List.range t).map (fun i ↦ 2^i * j - 1)
           let x := ((ps.zip exps).map (fun (p, e) ↦ p ^ e)).prod
           have hxnⱼcoprime : Nat.Coprime x nⱼ := by
-            sorry
+            dsimp only [x]
+            apply Nat.coprime_list_prod_left_iff.mpr
+            intro n hnin
+            simp at hnin
+            obtain ⟨p, k, hpk⟩ := hnin
+            have hpinps : p ∈ ps := (List.of_mem_zip hpk.left).left
+            have hpcoprime : Nat.Coprime p nⱼ := (hps.left p hpinps).right.right
+            rw [←hpk.right]
+            apply Nat.Coprime.pow_left
+            exact hpcoprime
           have hxneq0 : x ≠ 0 := by
             dsimp only [x]
             apply List.prod_ne_zero
@@ -497,7 +557,5 @@ theorem odd_k_satisfies (k : ℕ)
 theorem imo1998_q3 (k : ℕ) :
                    (k % 2 = 1 ↔ ∃ n : ℕ, n ≠ 0 ∧ d (n ^ 2) = k * d n) := by
   exact Iff.intro (odd_k_satisfies k) (k_is_odd k)
-
-#check (fun (x : ℕ × ℕ) (y : ℕ × ℕ) ↦ x.1 ^ x.2 ≠ y.1 ^ y.2)
 
 end Imo1998Q3
