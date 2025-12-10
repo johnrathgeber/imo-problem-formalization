@@ -212,6 +212,192 @@ lemma repeated_multiplicity_of_d : ∀ (l : List ℕ)
         intro n hnintail
         exact hhead n hnintail }
 
+lemma rw_d (t : ℕ) : ∀ (ps : List ℕ) (exps : List ℕ),
+    ps.length = exps.length → exps.length = t → (∀ i ∈ ps, Nat.Prime i)
+    → List.Nodup ps → List.Nodup exps
+    → d ((ps.zip exps).map (fun (p, e) ↦ p ^ e)).prod =
+          (List.map (fun i ↦ i + 1) exps).prod := by
+    intro ps exps hlen hlent hallprime hpsnodups hexpsnodups
+    rw [repeated_multiplicity_of_d (List.map (fun x ↦ x.1 ^ x.2) (ps.zip exps))]
+    { apply congr_arg List.prod
+      apply List.ext_get
+      { rw [List.length_map, List.length_map, List.length_map]
+        rw [List.length_zip, min_eq_left]
+        { grind }
+        { simp [hlen] } }
+      { intro n hind1 hind2
+        have hnltexpslen : n < exps.length := by grind
+        simp
+        have hnltpslen : n < ps.length := by grind
+        have hpsnprime : Nat.Prime (ps[n]'hnltpslen) := by
+          have hpsninps : ps[n] ∈ ps := by
+            exact List.get_mem ps ⟨n, hnltpslen⟩
+          exact hallprime ps[n] hpsninps
+        exact @prime_power_divisors ps[n] exps[n] hpsnprime } }
+    { apply List.Nodup.pairwise_of_forall_ne
+      { rw [List.nodup_iff_pairwise_ne]
+        rw [List.pairwise_map]
+        refine List.Pairwise.imp_of_mem (R := Ne) (fun {a b} ha hb hneq => ?_) ?_
+        { intro hpoweq
+          obtain ⟨p₁, k₁⟩ := a
+          obtain ⟨p₂, k₂⟩ := b
+          dsimp at hpoweq hneq
+          have hexistsidx1 := List.mem_iff_getElem?.mp ha
+          have hexistsidx2 := List.mem_iff_getElem?.mp hb
+          obtain ⟨i₁, hi₁⟩ := hexistsidx1
+          obtain ⟨i₂, hi₂⟩ := hexistsidx2
+          rw [List.getElem?_eq_some_iff] at hi₁ hi₂
+          obtain ⟨h1, h11⟩ := hi₁
+          obtain ⟨h2, h22⟩ := hi₂
+          rw [List.getElem_zip] at h11
+          rw [List.getElem_zip] at h22
+          have hi₁valid : i₁ < ps.length := by
+            exact List.lt_length_left_of_zip h1
+          have hi₂valid : i₂ < ps.length := by
+            exact List.lt_length_left_of_zip h2
+          have hi₁valide : i₁ < exps.length := by
+            exact List.lt_length_right_of_zip h1
+          have hi₂valide : i₂ < exps.length := by
+            exact List.lt_length_right_of_zip h2
+          have hp₁prime : Nat.Prime p₁ := by
+            refine ((hallprime p₁) ?_)
+            apply List.mem_of_getElem
+            exact (congrArg Prod.fst h11)
+          have hp₂prime : Nat.Prime p₂ := by
+            refine ((hallprime p₂) ?_)
+            apply List.mem_of_getElem
+            exact (congrArg Prod.fst h22)
+          have hpsi₁eqp₁ : ps[i₁] = p₁ := by grind
+          have hpsi₂eqp₂ : ps[i₂] = p₂ := by grind
+          have hexpsi₁eqk₁ : exps[i₁] = k₁ := by grind
+          have hexpsi₂eqk₂ : exps[i₂] = k₂ := by grind
+          have hp₁eqp₂ : p₁ = p₂ := by
+            by_contra hcon
+            have hcoprime := Nat.coprime_pow_primes k₁ k₂ hp₁prime hp₂prime hcon
+            rw [hpoweq] at hcoprime
+            have hvalone : p₂ ^ k₂ = 1 := (Nat.coprime_self (p₂ ^ k₂)).mp hcoprime
+            have hk₂zero : k₂ = 0 := by
+              have hor := Nat.pow_eq_one.mp hvalone
+              cases hor with
+              | inl h =>
+                  have h1np := Nat.not_prime_one
+                  rw [h.symm] at h1np
+                  contradiction
+              | inr h => exact h
+            have hcoprime2 := Nat.coprime_pow_primes k₁ k₂ hp₁prime hp₂prime hcon
+            rw [hpoweq.symm] at hcoprime2
+            have hvalone2 : p₁ ^ k₁ = 1 := (Nat.coprime_self (p₁ ^ k₁)).mp hcoprime2
+            have hk₁zero : k₁ = 0 := by
+              have hor := Nat.pow_eq_one.mp hvalone2
+              cases hor with
+              | inl h =>
+                  have h1np := Nat.not_prime_one
+                  rw [h.symm] at h1np
+                  contradiction
+              | inr h => exact h
+            have hiseq : i₁ = i₂ := by
+              rw [hexpsi₁eqk₁.symm] at hk₁zero
+              rw [hexpsi₂eqk₂.symm] at hk₂zero
+              have heq_vals : exps[i₁] = exps[i₂] := by rw [hk₁zero, hk₂zero]
+              apply (List.Nodup.getElem_inj_iff hexpsnodups).mp heq_vals
+            have hcontra : p₁ = p₂ := by
+              rw [hpsi₁eqp₁.symm, hpsi₂eqp₂.symm]
+              subst hiseq
+              rfl
+            contradiction
+          rw [hpsi₁eqp₁.symm, hpsi₂eqp₂.symm] at hp₁eqp₂
+          have hi₁eqi₂ : i₁ = i₂ := by
+            exact (List.Nodup.getElem_inj_iff hpsnodups).mp hp₁eqp₂
+          have hk₁eqk₂ : k₁ = k₂ := by
+            rw [hexpsi₁eqk₁.symm, hexpsi₂eqk₂.symm]
+            subst hi₁eqi₂
+            rfl
+          have hcontra : (p₁, k₁) = (p₂, k₂) := by grind
+          contradiction }
+        { refine List.nodup_iff_pairwise_ne.mp ?_
+          apply List.Nodup.of_map Prod.fst
+          rw [List.map_fst_zip]
+          { exact hpsnodups }
+          { grind } } }
+      { intro a ha b hb haneqb
+        rw [List.mem_map] at ha
+        obtain ⟨⟨p₁, k₁⟩, ha'⟩ := ha
+        rw [List.mem_map] at hb
+        obtain ⟨⟨p₂, k₂⟩, hb'⟩ := hb
+        simp at ha' hb'
+        have hp₁inps : p₁ ∈ ps := by
+            exact (List.of_mem_zip ha'.left).left
+        have hp₁prime : Nat.Prime p₁ := by
+          exact (hallprime p₁) hp₁inps
+        have hp₂inps : p₂ ∈ ps := by
+            exact (List.of_mem_zip hb'.left).left
+        have hp₂prime : Nat.Prime p₂ := by
+          exact (hallprime p₂) hp₂inps
+        rw [ha'.right.symm, hb'.right.symm]
+        apply Nat.coprime_pow_primes k₁ k₂ hp₁prime hp₂prime
+        have hpowsneq : p₁ ^ k₁ ≠ p₂ ^ k₂ := by
+          rw [ha'.right, hb'.right]
+          exact haneqb
+        intro hcon
+        have hp₁k₁zip : (p₁, k₁) ∈ ps.zip exps := ha'.left
+        have hp₂k₂zip : (p₂, k₂) ∈ ps.zip exps := hb'.left
+        have hexistsidx1 := List.mem_iff_getElem?.mp hp₁k₁zip
+        have hexistsidx2 := List.mem_iff_getElem?.mp hp₂k₂zip
+        obtain ⟨i₁, hi₁⟩ := hexistsidx1
+        obtain ⟨i₂, hi₂⟩ := hexistsidx2
+        rw [List.getElem?_eq_some_iff] at hi₁ hi₂
+        obtain ⟨h3, h33⟩ := hi₁
+        obtain ⟨h4, h44⟩ := hi₂
+        have hp1idx := List.mem_iff_getElem?.mp hp₁inps
+        have hp2idx := List.mem_iff_getElem?.mp hp₂inps
+        obtain ⟨j₁, hj₁⟩ := hp1idx
+        obtain ⟨j₂, hj₂⟩ := hp2idx
+        rw [List.getElem?_eq_some_iff] at hj₁ hj₂
+        obtain ⟨h1, h11⟩ := hj₁
+        obtain ⟨h2, h22⟩ := hj₂
+        have hjeqj : j₁ = j₂ := by
+          apply (List.Nodup.getElem_inj_iff hpsnodups).mp
+          rw [h11, h22]
+          exact hcon
+        have hi₁valid : i₁ < ps.length := by
+            exact List.lt_length_left_of_zip h3
+        have hi₂valid : i₂ < ps.length := by
+            exact List.lt_length_left_of_zip h4
+        have hi₁valid2 : i₁ < exps.length := by
+            exact List.lt_length_right_of_zip h3
+        have hi₂valid2 : i₂ < exps.length := by
+            exact List.lt_length_right_of_zip h4
+        have hieqi : i₁ = i₂ := by
+          have hpsi₁ : ps[i₁]'hi₁valid = p₁ := by
+            rw [List.getElem_zip] at h33
+            exact (congrArg Prod.fst h33)
+          have hpsi₂ : ps[i₂]'hi₂valid = p₂ := by
+            rw [List.getElem_zip] at h44
+            exact (congrArg Prod.fst h44)
+          rw [h11.symm] at hpsi₁
+          rw [h22.symm] at hpsi₂
+          have hi₁eqj₁ : i₁ = j₁ := by
+            exact (List.Nodup.getElem_inj_iff hpsnodups).mp hpsi₁
+          have hi₂eqj₂ : i₂ = j₂ := by
+            exact (List.Nodup.getElem_inj_iff hpsnodups).mp hpsi₂
+          rw [hi₁eqj₁, hi₂eqj₂]
+          exact hjeqj
+        rw [List.getElem_zip] at h33 h44
+        have hei₁eqk₁ : exps[i₁]'hi₁valid2 = k₁ := by
+          exact (congrArg Prod.snd h33)
+        have hei₂eqk₂ : exps[i₂]'hi₂valid2 = k₂ := by
+          exact (congrArg Prod.snd h44)
+        have hkeqk : k₁ = k₂ := by
+          rw [hei₁eqk₁.symm, hei₂eqk₂.symm]
+          subst hieqi
+          rfl
+        have hcontra : p₁ ^ k₁ = p₂ ^ k₂ := by
+          subst hcon
+          subst hkeqk
+          rfl
+        contradiction }
+        }
+
 -- We now prove that every odd number satisifies the equation.
 theorem odd_k_satisfies (k : ℕ)
                         (hkodd : k % 2 = 1) :
@@ -281,243 +467,88 @@ theorem odd_k_satisfies (k : ℕ)
             exact (hps.left (p, k).1 (List.of_mem_zip hpk).left).left
           have hneqdx : d x = ((List.range t).map (fun i ↦ (2 ^ i) * j)).prod := by
             dsimp only [x]
-            rw [repeated_multiplicity_of_d (List.map (fun x ↦ x.1 ^ x.2) (ps.zip exps))]
-            { apply congr_arg List.prod
-              apply List.ext_get
-              { rw [List.length_map, List.length_map, List.length_map]
-                rw [List.length_zip, min_eq_left]
-                { rw [hps.right.left]
-                  simp }
-                { rw [hps.right.left]
-                  dsimp [exps]
-                  simp } }
-              { intro n hind1 hind2
-                have hnltexpslen : n < exps.length := by
-                  dsimp [exps]
-                  have hleneq : exps.length =
-                            (List.map (fun i ↦ 2 ^ i * j) (List.range t)).length := by
-                    rw [List.length_map, List.length_map]
-                  rw [hleneq]
-                  exact hind2
-                simp
-                have hexpsn : exps[n]'hnltexpslen = 2 ^ n * j - 1 := by
-                  grind
-                rw [hexpsn]
-                have hnltpslen : n < ps.length := by
-                  have hleneq2 :
-                    (List.map (fun i ↦ d i) (List.map (fun x ↦ x.1 ^ x.2) (ps.zip exps))).length
-                     = ps.length := by
-                    rw [List.length_map, List.length_map]
-                    rw [List.length_zip, min_eq_left]
-                    rw [hps.right.left]
-                    dsimp [exps]
-                    simp
-                  rw [hleneq2.symm]
-                  exact hind1
-                have hpsnprime : Nat.Prime (ps[n]'hnltpslen) := by
-                  have hpsninps : ps[n] ∈ ps := by
-                    exact List.get_mem ps ⟨n, hnltpslen⟩
-                  exact (hps.left ps[n] hpsninps).left
-                have hclose := @prime_power_divisors ps[n] (2 ^ n * j - 1) hpsnprime
-                rw [hclose]
-                rw [Nat.sub_add_cancel]
-                apply one_le_mul_of_one_le_of_one_le
-                { exact Nat.one_le_two_pow }
-                { exact hjodd.pos } } }
-            { apply List.Nodup.pairwise_of_forall_ne
-              { rw [List.nodup_iff_pairwise_ne]
-                rw [List.pairwise_map]
-                refine List.Pairwise.imp_of_mem (R := Ne) (fun {a b} ha hb hneq => ?_) ?_
-                { intro hpoweq
-                  obtain ⟨p₁, k₁⟩ := a
-                  obtain ⟨p₂, k₂⟩ := b
-                  dsimp at hpoweq hneq
-                  have hexistsidx1 := List.mem_iff_getElem?.mp ha
-                  have hexistsidx2 := List.mem_iff_getElem?.mp hb
-                  obtain ⟨i₁, hi₁⟩ := hexistsidx1
-                  obtain ⟨i₂, hi₂⟩ := hexistsidx2
-                  rw [List.getElem?_eq_some_iff] at hi₁ hi₂
-                  obtain ⟨h1, h11⟩ := hi₁
-                  obtain ⟨h2, h22⟩ := hi₂
-                  rw [List.getElem_zip] at h11
-                  rw [List.getElem_zip] at h22
-                  have hi₁valid : i₁ < ps.length := by
-                    exact List.lt_length_left_of_zip h1
-                  have hi₂valid : i₂ < ps.length := by
-                    exact List.lt_length_left_of_zip h2
-                  have hi₁valide : i₁ < exps.length := by
-                    exact List.lt_length_right_of_zip h1
-                  have hi₂valide : i₂ < exps.length := by
-                    exact List.lt_length_right_of_zip h2
-                  have hp₁prime : Nat.Prime p₁ := by
-                    refine ((hps.left p₁) ?_).left
-                    apply List.mem_of_getElem
-                    exact (congrArg Prod.fst h11)
-                  have hp₂prime : Nat.Prime p₂ := by
-                    refine ((hps.left p₂) ?_).left
-                    apply List.mem_of_getElem
-                    exact (congrArg Prod.fst h22)
-                  have hpsi₁eqp₁ : ps[i₁] = p₁ := by grind
-                  have hpsi₂eqp₂ : ps[i₂] = p₂ := by grind
-                  have hexpsi₁eqk₁ : exps[i₁] = k₁ := by grind
-                  have hexpsi₂eqk₂ : exps[i₂] = k₂ := by grind
-                  have hp₁eqp₂ : p₁ = p₂ := by
-                    by_contra hcon
-                    have hcoprime := Nat.coprime_pow_primes k₁ k₂ hp₁prime hp₂prime hcon
-                    rw [hpoweq] at hcoprime
-                    have hvalone : p₂ ^ k₂ = 1 := (Nat.coprime_self (p₂ ^ k₂)).mp hcoprime
-                    have hk₂zero : k₂ = 0 := by
-                      have hor := Nat.pow_eq_one.mp hvalone
-                      cases hor with
-                      | inl h =>
-                          have h1np := Nat.not_prime_one
-                          rw [h.symm] at h1np
-                          contradiction
-                      | inr h => exact h
-                    have hcoprime2 := Nat.coprime_pow_primes k₁ k₂ hp₁prime hp₂prime hcon
-                    rw [hpoweq.symm] at hcoprime2
-                    have hvalone2 : p₁ ^ k₁ = 1 := (Nat.coprime_self (p₁ ^ k₁)).mp hcoprime2
-                    have hk₁zero : k₁ = 0 := by
-                      have hor := Nat.pow_eq_one.mp hvalone2
-                      cases hor with
-                      | inl h =>
-                          have h1np := Nat.not_prime_one
-                          rw [h.symm] at h1np
-                          contradiction
-                      | inr h => exact h
-                    have hiseq : i₁ = i₂ := by
-                      rw [hexpsi₁eqk₁.symm] at hk₁zero
-                      rw [hexpsi₂eqk₂.symm] at hk₂zero
-                      dsimp [exps] at hk₁zero hk₂zero
-                      have hi₁eq0 : i₁ = 0 := by
-                        rw [List.getElem_map, List.getElem_range] at hk₁zero
-                        have hle : 2 ^ i₁ * j ≤ 1 := Nat.le_of_sub_eq_zero hk₁zero
-                        have hpos : 1 ≤ 2 ^ i₁ * j := by
-                          exact one_le_mul_of_one_le_of_one_le
-                            (Nat.one_le_two_pow)
-                            (hjodd.pos)
-                        have heq : 2 ^ i₁ * j = 1 := Nat.le_antisymm hle hpos
-                        have h2i₁eq1 : 2 ^ i₁ = 1 := Nat.eq_one_of_mul_eq_one_right heq
-                        have hor := (@Nat.pow_eq_one 2 i₁).mp h2i₁eq1
-                        cases hor
-                        { contradiction }
-                        { assumption }
-                      have hi₂eq0 : i₂ = 0 := by
-                        rw [List.getElem_map, List.getElem_range] at hk₂zero
-                        have hle : 2 ^ i₂ * j ≤ 1 := Nat.le_of_sub_eq_zero hk₂zero
-                        have hpos : 1 ≤ 2 ^ i₂ * j := by
-                          exact one_le_mul_of_one_le_of_one_le
-                            (Nat.one_le_two_pow)
-                            (hjodd.pos)
-                        have heq : 2 ^ i₂ * j = 1 := Nat.le_antisymm hle hpos
-                        have h2i₂eq1 : 2 ^ i₂ = 1 := Nat.eq_one_of_mul_eq_one_right heq
-                        have hor := (@Nat.pow_eq_one 2 i₂).mp h2i₂eq1
-                        cases hor
-                        { contradiction }
-                        { assumption }
-                      rw [hi₁eq0, hi₂eq0]
-                    have hcontra : p₁ = p₂ := by
-                      rw [hpsi₁eqp₁.symm, hpsi₂eqp₂.symm]
-                      subst hiseq
-                      rfl
-                    contradiction
-                  rw [hpsi₁eqp₁.symm, hpsi₂eqp₂.symm] at hp₁eqp₂
-                  have hi₁eqi₂ : i₁ = i₂ := by
-                    exact (List.Nodup.getElem_inj_iff hps.right.right).mp hp₁eqp₂
-                  have hk₁eqk₂ : k₁ = k₂ := by
-                    rw [hexpsi₁eqk₁.symm, hexpsi₂eqk₂.symm]
-                    subst hi₁eqi₂
-                    rfl
-                  have hcontra : (p₁, k₁) = (p₂, k₂) := by grind
-                  contradiction }
-                { refine List.nodup_iff_pairwise_ne.mp ?_
-                  apply List.Nodup.of_map Prod.fst
-                  rw [List.map_fst_zip]
-                  { exact hps.right.right }
-                  { rw [hps.right.left]
-                    rw [List.length_map]
-                    simp } } }
-              { intro a ha b hb haneqb
-                rw [List.mem_map] at ha
-                obtain ⟨⟨p₁, k₁⟩, ha'⟩ := ha
-                rw [List.mem_map] at hb
-                obtain ⟨⟨p₂, k₂⟩, hb'⟩ := hb
-                simp at ha' hb'
-                have hp₁inps : p₁ ∈ ps := by
-                    exact (List.of_mem_zip ha'.left).left
-                have hp₁prime : Nat.Prime p₁ := by
-                  exact ((hps.left p₁) hp₁inps).left
-                have hp₂inps : p₂ ∈ ps := by
-                    exact (List.of_mem_zip hb'.left).left
-                have hp₂prime : Nat.Prime p₂ := by
-                  exact ((hps.left p₂) hp₂inps).left
-                rw [ha'.right.symm, hb'.right.symm]
-                apply Nat.coprime_pow_primes k₁ k₂ hp₁prime hp₂prime
-                have hpowsneq : p₁ ^ k₁ ≠ p₂ ^ k₂ := by
-                  rw [ha'.right, hb'.right]
-                  exact haneqb
-                intro hcon
-                have hp₁k₁zip : (p₁, k₁) ∈ ps.zip exps := ha'.left
-                have hp₂k₂zip : (p₂, k₂) ∈ ps.zip exps := hb'.left
-                have hexistsidx1 := List.mem_iff_getElem?.mp hp₁k₁zip
-                have hexistsidx2 := List.mem_iff_getElem?.mp hp₂k₂zip
-                obtain ⟨i₁, hi₁⟩ := hexistsidx1
-                obtain ⟨i₂, hi₂⟩ := hexistsidx2
-                rw [List.getElem?_eq_some_iff] at hi₁ hi₂
-                obtain ⟨h3, h33⟩ := hi₁
-                obtain ⟨h4, h44⟩ := hi₂
-                have hp1idx := List.mem_iff_getElem?.mp hp₁inps
-                have hp2idx := List.mem_iff_getElem?.mp hp₂inps
-                obtain ⟨j₁, hj₁⟩ := hp1idx
-                obtain ⟨j₂, hj₂⟩ := hp2idx
-                rw [List.getElem?_eq_some_iff] at hj₁ hj₂
-                obtain ⟨h1, h11⟩ := hj₁
-                obtain ⟨h2, h22⟩ := hj₂
-                have hjeqj : j₁ = j₂ := by
-                  apply (List.Nodup.getElem_inj_iff hps.right.right).mp
-                  rw [h11, h22]
-                  exact hcon
-                have hi₁valid : i₁ < ps.length := by
-                    exact List.lt_length_left_of_zip h3
-                have hi₂valid : i₂ < ps.length := by
-                    exact List.lt_length_left_of_zip h4
-                have hi₁valid2 : i₁ < exps.length := by
-                    exact List.lt_length_right_of_zip h3
-                have hi₂valid2 : i₂ < exps.length := by
-                    exact List.lt_length_right_of_zip h4
-                have hieqi : i₁ = i₂ := by
-                  have hpsi₁ : ps[i₁]'hi₁valid = p₁ := by
-                    rw [List.getElem_zip] at h33
-                    exact (congrArg Prod.fst h33)
-                  have hpsi₂ : ps[i₂]'hi₂valid = p₂ := by
-                    rw [List.getElem_zip] at h44
-                    exact (congrArg Prod.fst h44)
-                  rw [h11.symm] at hpsi₁
-                  rw [h22.symm] at hpsi₂
-                  have hi₁eqj₁ : i₁ = j₁ := by
-                    exact (List.Nodup.getElem_inj_iff hps.right.right).mp hpsi₁
-                  have hi₂eqj₂ : i₂ = j₂ := by
-                    exact (List.Nodup.getElem_inj_iff hps.right.right).mp hpsi₂
-                  rw [hi₁eqj₁, hi₂eqj₂]
-                  exact hjeqj
-                rw [List.getElem_zip] at h33 h44
-                have hei₁eqk₁ : exps[i₁]'hi₁valid2 = k₁ := by
-                  exact (congrArg Prod.snd h33)
-                have hei₂eqk₂ : exps[i₂]'hi₂valid2 = k₂ := by
-                  exact (congrArg Prod.snd h44)
-                have hkeqk : k₁ = k₂ := by
-                  rw [hei₁eqk₁.symm, hei₂eqk₂.symm]
-                  subst hieqi
-                  rfl
-                have hcontra : p₁ ^ k₁ = p₂ ^ k₂ := by
-                  subst hcon
-                  subst hkeqk
-                  rfl
-                contradiction }
-               }
+            have hexpsnodups : exps.Nodup := by
+              dsimp [exps]
+              refine (List.nodup_map_iff ?_).mpr ?_
+              { intro a b hab
+                simp at hab
+                have hmuleq : 2 ^ a * j = 2 ^ b * j := by
+                  apply Nat.pred_inj _ _ hab
+                  { simp
+                    exact hjodd.pos }
+                  { simp
+                    exact hjodd.pos }
+                apply Nat.eq_of_mul_eq_mul_right hjodd.pos at hmuleq
+                exact Nat.pow_right_injective (by decide) hmuleq }
+              { exact List.nodup_range }
+            have h := rw_d t ps exps (by grind) (by grind) (by grind) (by grind) hexpsnodups
+            rw [h]
+            dsimp [exps]
+            rw [List.map_map]
+            apply congrArg List.prod
+            apply List.map_congr_left
+            intro i hi
+            dsimp
+            rw [Nat.sub_add_cancel]
+            apply one_le_mul_of_one_le_of_one_le
+            { exact Nat.one_le_two_pow }
+            { exact hjodd.pos }
           have hneqdx2 : d (x ^ 2) = ((List.range t).map (fun i ↦ (2 ^ (i + 1) * j - 1))).prod := by
             dsimp only [x]
-            sorry
+            have hsqdistr : (List.map (fun x ↦ x.1 ^ x.2) (ps.zip exps)).prod ^ 2
+                        = (List.map (fun x ↦ x.1 ^ (2 * x.2)) (ps.zip exps)).prod := by
+              induction (ps.zip exps) with
+              | nil => simp
+              | cons head tail ih =>
+                simp
+                rw [Nat.mul_pow, ih, mul_comm 2 head.2, pow_mul]
+            rw [hsqdistr]
+            have hexp2 : (List.map (fun x ↦ x.1 ^ (2 * x.2)) (ps.zip exps)) =
+                    (List.map (fun x ↦ x.1 ^ x.2)
+                      (ps.zip ((List.map (fun y ↦ 2 * y) exps)))) := by
+              nth_rw 2 [List.zip_map_right]
+              rw [List.map_map]
+              simp
+            rw [hexp2]
+            have hexpsnodups : (List.map (fun y ↦ 2 * y) exps).Nodup := by
+              dsimp [exps]
+              rw [List.map_map]
+              refine (List.nodup_map_iff ?_).mpr ?_
+              { intro a b hab
+                simp at hab
+                have hmuleq : 2 ^ a * j = 2 ^ b * j := by
+                  apply Nat.pred_inj _ _ hab
+                  { simp
+                    exact hjodd.pos }
+                  { simp
+                    exact hjodd.pos }
+                apply Nat.eq_of_mul_eq_mul_right hjodd.pos at hmuleq
+                exact Nat.pow_right_injective (by decide) hmuleq }
+              { exact List.nodup_range }
+            have h := rw_d t ps (List.map (fun y ↦ 2 * y) exps)
+                (by grind) (by grind) (by grind) (by grind) hexpsnodups
+            rw [h]
+            dsimp [exps]
+            rw [List.map_map, List.map_map]
+            apply congrArg List.prod
+            apply List.map_congr_left
+            intro i hi
+            dsimp
+            rw [Nat.mul_sub_one 2 (2 ^ i * j)]
+            rw [(mul_assoc 2 (2 ^ i) j).symm]
+            rw [←(Nat.two_pow_succ i).symm]
+            rw [two_mul]
+            have hweird : 2 ≤ (2 ^ i + 2 ^ i) * j := by
+              have hj : j ≥ 1 := hjodd.pos
+              rw [←two_mul]
+              rw [mul_assoc, mul_comm 2]
+              simp
+              have hjj := @Nat.one_le_two_pow i
+              apply mul_le_mul hjj hj
+              { linarith }
+              { linarith }
+            rw [(@Nat.sub_add_comm ((2 ^ i + 2 ^ i) * j) 1 2 hweird).symm]
+            rfl
           have hdvd : d (x ^ 2) / d x = ((2 ^ t) * j - 1) / j := calc
                 d (x ^ 2) / d x
                 _ = (((List.range t).map (fun i ↦ (2 ^ (i + 1)) * j - 1)).prod) /
