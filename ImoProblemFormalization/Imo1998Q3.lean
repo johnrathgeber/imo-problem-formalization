@@ -187,13 +187,6 @@ lemma exists_distinct_primes (t n : ℕ)
             linarith
           grind } }
 
-lemma telescoping_product_identity (t j : ℕ) (hj : j ≠ 0) :
-                              let num (i : ℕ) := (2 * (2^i * j - 1) + 1 : ℚ)
-                              let den (i : ℕ) := ((2^i * j - 1) + 1 : ℚ)
-                              (List.range t).map (fun i ↦ num i / den i) |>.prod =
-                              (2^t * j - 1 : ℚ) / j := by
-  sorry
-
 lemma repeated_multiplicity_of_d : ∀ (l : List ℕ)
                     (_hcoprime : l.Pairwise Nat.Coprime),
                     d (l.prod) = (List.map (fun i ↦ d i) l).prod := by
@@ -413,6 +406,8 @@ theorem odd_k_satisfies (k : ℕ)
           simp }
         { let kk := k_minus_1 + 1
           let t := (kk + 1).factorization 2
+          have htpos : 0 < t := by
+            exact Nat.Prime.factorization_pos_of_dvd (by decide) (by simp) (by grind)
           let j := (kk + 1) / (2 ^ t)
           have h_div : 2 ^ t ∣ (kk + 1) := by
             exact Nat.ordProj_dvd (kk + 1) 2
@@ -425,15 +420,13 @@ theorem odd_k_satisfies (k : ℕ)
               rw [hordcompl]
               exact htwondvd
             exact Nat.odd_iff.mpr (Nat.two_dvd_ne_zero.mp htwondvdj)
+          have hkkeqjt : kk + 1 = j * 2 ^ t := by
+              exact Nat.eq_mul_of_div_eq_left h_div rfl
           have hjltkk : j < kk := by
             have hkkge2 : kk ≥ 2 := by grind
             have h2le2t : 2 ≤ 2 ^ t := by
-              have htpos : 0 < t := by
-                exact Nat.Prime.factorization_pos_of_dvd (by decide) (by simp) (by grind)
               refine Nat.le_self_pow ?_ 2
               linarith
-            have hkkeqjt : kk + 1 = j * 2 ^ t := by
-              exact Nat.eq_mul_of_div_eq_left h_div rfl
             have hbound : kk + 1 ≥ 2 * j := calc
               kk + 1 = j * 2^t := hkkeqjt
               _      ≥ j * 2   := Nat.mul_le_mul_left j h2le2t
@@ -443,7 +436,18 @@ theorem odd_k_satisfies (k : ℕ)
           obtain ⟨nⱼ, hnⱼ⟩ := hjworks
           let kfac := kk.factorization
           obtain ⟨ps, hps⟩ := exists_distinct_primes t nⱼ hnⱼ.left kfac.support.toList
-          let exps := (List.range t).map (fun i ↦ 2^i * j - 1)
+          let C := j * (2^t - 1) - 1
+          have hCpos : C > 0 := by
+            have ht : t > 0 := htpos
+            have hj : j > 0 := hjodd.pos
+            dsimp [C]
+            rw [Nat.mul_sub_left_distrib, Nat.mul_one]
+            rw [Nat.sub_sub]
+            rw [←hkkeqjt]
+            rw [Nat.add_sub_add_right]
+            apply Nat.sub_pos_of_lt
+            exact hjltkk
+          let exps := (List.range t).map (fun i ↦ C * 2^i)
           let x := ((ps.zip exps).map (fun (p, e) ↦ p ^ e)).prod
           have hxnⱼcoprime : Nat.Coprime x nⱼ := by
             dsimp only [x]
@@ -465,21 +469,17 @@ theorem odd_k_satisfies (k : ℕ)
             apply pow_ne_zero
             apply Nat.Prime.ne_zero
             exact (hps.left (p, k).1 (List.of_mem_zip hpk).left).left
-          have hneqdx : d x = ((List.range t).map (fun i ↦ (2 ^ i) * j)).prod := by
+          have hneqdx : d x = ((List.range t).map
+            (fun i ↦ (2 ^ (t + i)) * j - 2 ^ i * (j + 1) + 1)).prod := by
             dsimp only [x]
             have hexpsnodups : exps.Nodup := by
               dsimp [exps]
               refine (List.nodup_map_iff ?_).mpr ?_
               { intro a b hab
                 simp at hab
-                have hmuleq : 2 ^ a * j = 2 ^ b * j := by
-                  apply Nat.pred_inj _ _ hab
-                  { simp
-                    exact hjodd.pos }
-                  { simp
-                    exact hjodd.pos }
-                apply Nat.eq_of_mul_eq_mul_right hjodd.pos at hmuleq
-                exact Nat.pow_right_injective (by decide) hmuleq }
+                cases hab with
+                | inl h => exact h
+                | inr h => linarith [hCpos] }
               { exact List.nodup_range }
             have h := rw_d t ps exps (by grind) (by grind) (by grind) (by grind) hexpsnodups
             rw [h]
@@ -488,12 +488,15 @@ theorem odd_k_satisfies (k : ℕ)
             apply congrArg List.prod
             apply List.map_congr_left
             intro i hi
-            dsimp
-            rw [Nat.sub_add_cancel]
-            apply one_le_mul_of_one_le_of_one_le
-            { exact Nat.one_le_two_pow }
-            { exact hjodd.pos }
-          have hneqdx2 : d (x ^ 2) = ((List.range t).map (fun i ↦ (2 ^ (i + 1) * j - 1))).prod := by
+            simp
+            dsimp [C]
+            rw [Nat.mul_sub_right_distrib, Nat.mul_sub_left_distrib, Nat.mul_one]
+            rw [Nat.mul_sub_right_distrib, mul_assoc j, ←pow_add]
+            rw [Nat.mul_add, Nat.mul_one]
+            rw [mul_comm (2^i) j]
+            grind
+          have hneqdx2 : d (x ^ 2) = ((List.range t).map
+            (fun i ↦ (2 ^ (t + i + 1) * j - 2 ^ (i + 1) * (j + 1) + 1))).prod := by
             dsimp only [x]
             have hsqdistr : (List.map (fun x ↦ x.1 ^ x.2) (ps.zip exps)).prod ^ 2
                         = (List.map (fun x ↦ x.1 ^ (2 * x.2)) (ps.zip exps)).prod := by
@@ -516,14 +519,9 @@ theorem odd_k_satisfies (k : ℕ)
               refine (List.nodup_map_iff ?_).mpr ?_
               { intro a b hab
                 simp at hab
-                have hmuleq : 2 ^ a * j = 2 ^ b * j := by
-                  apply Nat.pred_inj _ _ hab
-                  { simp
-                    exact hjodd.pos }
-                  { simp
-                    exact hjodd.pos }
-                apply Nat.eq_of_mul_eq_mul_right hjodd.pos at hmuleq
-                exact Nat.pow_right_injective (by decide) hmuleq }
+                cases hab with
+                | inl h => exact h
+                | inr h => linarith [hCpos] }
               { exact List.nodup_range }
             have h := rw_d t ps (List.map (fun y ↦ 2 * y) exps)
                 (by grind) (by grind) (by grind) (by grind) hexpsnodups
@@ -533,37 +531,30 @@ theorem odd_k_satisfies (k : ℕ)
             apply congrArg List.prod
             apply List.map_congr_left
             intro i hi
-            dsimp
-            rw [Nat.mul_sub_one 2 (2 ^ i * j)]
-            rw [(mul_assoc 2 (2 ^ i) j).symm]
-            rw [←(Nat.two_pow_succ i).symm]
-            rw [two_mul]
-            have hweird : 2 ≤ (2 ^ i + 2 ^ i) * j := by
-              have hj : j ≥ 1 := hjodd.pos
-              rw [←two_mul]
-              rw [mul_assoc, mul_comm 2]
-              simp
-              have hjj := @Nat.one_le_two_pow i
-              apply mul_le_mul hjj hj
-              { linarith }
-              { linarith }
-            rw [(@Nat.sub_add_comm ((2 ^ i + 2 ^ i) * j) 1 2 hweird).symm]
-            rfl
-          have hdvd : d (x ^ 2) / d x = ((2 ^ t) * j - 1) / j := calc
-                d (x ^ 2) / d x
-                _ = (((List.range t).map (fun i ↦ (2 ^ (i + 1)) * j - 1)).prod) /
-                    ((List.range t).map (fun i ↦ (2 ^ i) * j)).prod := by
-                  rw [hneqdx2, hneqdx]
-                _ = ((List.range t).map (fun i ↦ ((2 ^ (i + 1)) * j - 1)
-                                                / ((2 ^ i) * j))).prod := by
-                  sorry
-                _ = ((2 ^ t) * j - 1) / j := by
-                  sorry
+            simp
+            dsimp [C]
+            rw [mul_comm 2, mul_assoc, mul_comm (2 ^ i) 2, (pow_succ' 2 i).symm]
+            rw [Nat.mul_sub_right_distrib, Nat.mul_sub_left_distrib, Nat.mul_one]
+            rw [Nat.mul_sub_right_distrib, mul_assoc j, ←pow_add]
+            grind
+          have htelescopes : d (x ^ 2) * j = d x * (2 ^ t * j - 1) := by
+            dsimp [x]
+            rw [hneqdx, hneqdx2]
+            sorry
           use nⱼ * x
+          have hnⱼprodxneq0 : nⱼ * x ≠ 0 := by
+            rw [mul_ne_zero_iff]
+            exact And.intro hnⱼ.left hxneq0
+          refine ⟨hnⱼprodxneq0, ?_⟩
           have hdx2 : d ((nⱼ * x) ^ 2) = (d (nⱼ ^ 2)) * (d (x ^ 2)) := by
-            sorry
+            have hmulexp : (nⱼ * x) ^ 2 = nⱼ ^ 2 * x ^ 2 := by
+              exact Nat.mul_pow nⱼ x 2
+            rw [hmulexp]
+            apply d_multiplicative (nⱼ ^ 2) (x ^ 2)
+            exact Nat.Coprime.pow 2 2 hxnⱼcoprime.symm
           have hdx : d (nⱼ * x) = (d nⱼ) * (d x) := by
-            sorry
+            apply d_multiplicative nⱼ x
+            exact hxnⱼcoprime.symm
           rw [hdx2, hdx]
           have hkj : k_minus_1 + 1 = (2 ^ t) * j - 1 := by
             simp [j, kk]
@@ -574,13 +565,10 @@ theorem odd_k_satisfies (k : ℕ)
             rw [hkj2]
             simp
           rw [hkj]
-          have hnⱼprodxneq0 : nⱼ * x ≠ 0 := by
-            rw [mul_ne_zero_iff]
-            exact And.intro hnⱼ.left hxneq0
-          refine ⟨hnⱼprodxneq0, ?_⟩
-          have halmost : d (x ^ 2) * j = (2 ^ t * j - 1) * (d x) := by
-            sorry
-          sorry
+          rw [mul_comm (2 ^ t * j - 1), mul_assoc, mul_comm (d nⱼ)]
+          rw [htelescopes.symm]
+          rw [hnⱼ.right]
+          ring
         }
       }
 
