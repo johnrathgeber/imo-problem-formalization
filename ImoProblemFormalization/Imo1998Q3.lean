@@ -1,4 +1,8 @@
-import Mathlib
+import Mathlib.Tactic
+import Mathlib.Data.Nat.Basic
+import Mathlib.Data.Nat.Prime.Basic
+import Mathlib.Data.Nat.Factorization.Basic
+import Mathlib.NumberTheory.Divisors
 
 /-
 # IMO 1998 Q3
