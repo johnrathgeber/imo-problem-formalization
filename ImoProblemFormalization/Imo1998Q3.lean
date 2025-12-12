@@ -11,7 +11,7 @@ For any positive integer `n`, let `d(n)` denote the number of positive divisors
 of `n` (including `1` and `n` itself). Determine all positive integers `k` such that
 `d(n^2)/d(n) = k` for some `n`.
 
-The answer to this problem is every odd number, so to formalize this in Lean,
+The answer to this problem is every odd number, so to formalize this,
 we must prove that if a `k` satisfies `d(n^2)/d(n) = k` for some `n`, then
 `k` is odd, and also if `k` is odd, then it satisfies `d(n^2)/d(n) = k` for some `n`.
 -/
