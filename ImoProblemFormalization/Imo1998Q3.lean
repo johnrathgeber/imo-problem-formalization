@@ -542,9 +542,68 @@ theorem odd_k_satisfies (k : ℕ)
             rw [Nat.mul_sub_right_distrib, mul_assoc j, ←pow_add]
             grind
           have htelescopes : d (x ^ 2) * j = d x * (2 ^ t * j - 1) := by
-            dsimp [x]
-            rw [hneqdx, hneqdx2]
-            sorry
+            have h : d (x ^ 2) * (2 ^ t * j - (j + 1) + 1) =
+              d x * (2 ^ (2 * t) * j - 2 ^ t * (j + 1) + 1) := by
+              let f := fun i ↦ 2 ^ (t + i) * j - 2 ^ i * (j + 1) + 1
+              have h1 : (List.map (f ∘ Nat.succ) (List.range t)).prod * f 0 =
+                    d (x ^ 2) * (2 ^ t * j - (j + 1) + 1) := by
+                    simp [f, hneqdx2]
+                    apply congrArg List.prod
+                    apply List.map_congr_left
+                    intro i hi
+                    simp
+                    rfl
+              have h2 : (List.map f (List.range t)).prod * f t =
+                    d x * (2 ^ (2 * t) * j - 2 ^ t * (j + 1) + 1) := by
+                    simp [f, hneqdx]
+                    rw [two_mul]
+              rw [h1.symm, h2.symm]
+              rw [mul_comm _ (f 0)]
+              rw [←List.prod_cons]
+              have hlhs : f 0 :: List.map (f ∘ Nat.succ) (List.range t) =
+                        List.map f (List.range (t + 1)) := by
+                rw [List.range_succ_eq_map]
+                rw [List.map_cons]
+                rw [List.map_map]
+              have hrhs : (List.map f (List.range t)).prod * f t =
+                        (List.map f (List.range (t + 1))).prod := by
+                rw [List.range_succ]
+                rw [List.map_append]
+                rw [List.prod_append]
+                simp
+              rw [hlhs, hrhs]
+            have hfactor : (2 ^ (2 * t) * j - 2 ^ t * (j + 1) + 1) =
+              (2 ^ t * j - 1) * (2 ^ t - 1) := by
+              have h1 : 1 ≤ 2^t := by
+                apply Nat.succ_le_of_lt
+                apply Nat.lt_of_succ_lt
+                apply Nat.one_lt_two_pow
+                exact Nat.ne_of_gt htpos
+              have h2 : 1 ≤ 2^t * j := by
+                linarith [h1, hjodd.pos]
+              have h3 : 2 ^ t * (j + 1) ≤ 2 ^ (2 * t) * j := by
+                rw [Nat.mul_add, two_mul, pow_add, (Nat.mul_add (2 ^ t) j 1).symm]
+                rw [mul_assoc (2 ^ t)]
+                apply Nat.mul_le_mul_left
+                calc j + 1 ≤ 2 * j     := by linarith [hjodd.pos]
+                     _     ≤ 2 ^ t * j := by
+                            apply Nat.mul_le_mul_right j
+                            apply Nat.succ_le_of_lt
+                            apply Nat.one_lt_two_pow
+                            exact Nat.ne_of_gt htpos
+              zify
+              rw [Nat.cast_sub h3]
+              zify [h1, h2]
+              ring
+            have hden : 2 ^ t * j - (j + 1) + 1 = j * (2 ^ t - 1) := by
+              grind
+            rw [hfactor, hden] at h
+            rw [←mul_assoc, ←mul_assoc] at h
+            apply Nat.eq_of_mul_eq_mul_right _
+            { exact h }
+            { apply Nat.sub_pos_of_lt
+              apply Nat.one_lt_two_pow
+              exact Nat.ne_of_gt htpos }
           use nⱼ * x
           have hnⱼprodxneq0 : nⱼ * x ≠ 0 := by
             rw [mul_ne_zero_iff]
