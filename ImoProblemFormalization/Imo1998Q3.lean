@@ -63,8 +63,8 @@ lemma d_n2 (n : ℕ) (hn : n ≠ 0) : d (n ^ 2) =
   rw [if_neg (pow_ne_zero 2 hn)]
   rw [Nat.factorization_pow]
   refine Finset.prod_congr ?_ ?_
-  { aesop }
-  { aesop }
+  { exact Finsupp.support_smul_eq two_ne_zero }
+  { simp }
 
 -- Proof that if every number in a list is odd, the product of the list is odd.
 lemma list_prod_odd : ∀ (l : List ℕ), (∀ x ∈ l, Odd x) → Odd l.prod := by
@@ -88,7 +88,10 @@ theorem k_is_odd (k : ℕ)
                  (k % 2 = 1) := by
   obtain ⟨n, hn⟩ := h
   let nfac := n.factorization
-  have hprime : ∀ p ∈ nfac.support, Nat.Prime p := by aesop
+  have hprime : ∀ p ∈ nfac.support, Nat.Prime p := by
+    intro p hp
+    dsimp [nfac] at hp
+    exact Nat.prime_of_mem_primeFactors hp
   have hnfac := Nat.eq_factorization_iff hn.left hprime
   have hneqnfac : (nfac.prod fun x1 x2 ↦ x1 ^ x2) = n := hnfac.mp (by rfl)
   have hdn2odd : (d (n ^ 2)) % 2 = 1 := by
@@ -119,13 +122,13 @@ theorem k_is_odd (k : ℕ)
         dsimp [powers]
         rw [Finsupp.prod]
         rw [Finset.prod_eq_multiset_prod]
-        aesop
+        simp
       rw [h_eq]
       exact list_prod_odd powers hallodd
     rw [hd]
     exact Nat.odd_iff.mp hoddmul
   rw [hn.right] at hdn2odd
-  have hodd : Odd (k * (d n)) := by grind
+  have hodd : Odd (k * (d n)) := Nat.odd_iff.mpr hdn2odd
   have hkodd : Odd k := (Nat.odd_mul.mp hodd).left
   exact Nat.odd_iff.mp hkodd
 
@@ -145,25 +148,31 @@ lemma exists_distinct_primes (t n : ℕ)
   | succ t ih =>
       obtain ⟨l, props⟩ := ih
       let existing_numbers := (primes ++ l ++ [n])
-      let bound := existing_numbers.max (by aesop)
+      have he : existing_numbers ≠ [] := by
+        dsimp [existing_numbers]
+        simp
+      let bound := existing_numbers.max he
       have hexists := Nat.exists_infinite_primes (bound + 1)
       obtain ⟨new, hnew⟩ := hexists
-      have hnewgtbound : new > bound := by linarith
+      have hnewgtbound : new > bound := Nat.add_one_le_iff.mp hnew.left
       have hnewprime : Nat.Prime new := hnew.right
       use l ++ [new]
       apply And.intro
       { intro i hiinlist
         simp at hiinlist
         cases hiinlist with
-        | inl h => grind
+        | inl h => exact props.left i h
         | inr h =>
             rw [h]
             have hnewnotinprimes : new ∉ primes := by
               intro hin
               have hnewlebound : new ≤ bound := by
-                have hnewinexisting : new ∈ existing_numbers := by grind
+                have hnewinexisting : new ∈ existing_numbers := by
+                  apply List.mem_append_left
+                  apply List.mem_append_left
+                  exact hin
                 have hnewlemax := List.le_max_of_mem
-                                      (l := existing_numbers) hnewinexisting
+                                (l := existing_numbers) hnewinexisting
                 simp [bound]
                 exact hnewlemax
               linarith [hnewlebound, hnewgtbound]
@@ -171,12 +180,15 @@ lemma exists_distinct_primes (t n : ℕ)
               refine Nat.coprime_of_lt_prime hnneq0 ?_ hnewprime
               have hnleqbound : n ≤ bound := by
                 simp [bound]
-                have hninexisting : n ∈ existing_numbers := by grind
+                have hninexisting : n ∈ existing_numbers := by
+                  apply List.mem_append_right
+                  exact List.mem_singleton_self n
                 exact List.le_max_of_mem hninexisting
               linarith
             exact And.intro hnewprime (And.intro hnewnotinprimes hnewcoprimen) }
       { apply And.intro
-        { grind }
+        { rw [List.length_append]
+          rw [props.right.left, List.length_singleton] }
         { have halmost : (new :: l).Nodup := by
             refine List.nodup_cons.mpr (And.intro ?_ props.right.right)
             intro hnewinl
@@ -189,7 +201,8 @@ lemma exists_distinct_primes (t n : ℕ)
               simp [bound]
               exact List.le_max_of_mem hnewinexisting
             linarith
-          grind } }
+          rw [List.singleton_append.symm] at halmost
+          exact List.nodup_append_comm.mp halmost } }
 
 lemma repeated_multiplicity_of_d : ∀ (l : List ℕ)
                     (_hcoprime : l.Pairwise Nat.Coprime),
@@ -220,12 +233,16 @@ lemma rw_d (t : ℕ) : ∀ (ps : List ℕ) (exps : List ℕ),
       apply List.ext_get
       { rw [List.length_map, List.length_map, List.length_map]
         rw [List.length_zip, min_eq_left]
-        { grind }
+        { exact hlen }
         { simp [hlen] } }
       { intro n hind1 hind2
-        have hnltexpslen : n < exps.length := by grind
+        have hnltexpslen : n < exps.length := by
+          rw [List.length_map] at hind2
+          exact hind2
         simp
-        have hnltpslen : n < ps.length := by grind
+        have hnltpslen : n < ps.length := by
+          rw [List.length_map, List.length_map] at hind1
+          exact List.lt_length_left_of_zip hind1
         have hpsnprime : Nat.Prime (ps[n]'hnltpslen) := by
           have hpsninps : ps[n] ∈ ps := by
             exact List.get_mem ps ⟨n, hnltpslen⟩
@@ -264,10 +281,10 @@ lemma rw_d (t : ℕ) : ∀ (ps : List ℕ) (exps : List ℕ),
             refine ((hallprime p₂) ?_)
             apply List.mem_of_getElem
             exact (congrArg Prod.fst h22)
-          have hpsi₁eqp₁ : ps[i₁] = p₁ := by grind
-          have hpsi₂eqp₂ : ps[i₂] = p₂ := by grind
-          have hexpsi₁eqk₁ : exps[i₁] = k₁ := by grind
-          have hexpsi₂eqk₂ : exps[i₂] = k₂ := by grind
+          have hpsi₁eqp₁ : ps[i₁] = p₁ := (Prod.mk_inj.mp h11).left
+          have hpsi₂eqp₂ : ps[i₂] = p₂ := (Prod.mk_inj.mp h22).left
+          have hexpsi₁eqk₁ : exps[i₁] = k₁ := (Prod.mk_inj.mp h11).right
+          have hexpsi₂eqk₂ : exps[i₂] = k₂ := (Prod.mk_inj.mp h22).right
           have hp₁eqp₂ : p₁ = p₂ := by
             by_contra hcon
             have hcoprime := Nat.coprime_pow_primes k₁ k₂ hp₁prime hp₂prime hcon
@@ -309,13 +326,15 @@ lemma rw_d (t : ℕ) : ∀ (ps : List ℕ) (exps : List ℕ),
             rw [hexpsi₁eqk₁.symm, hexpsi₂eqk₂.symm]
             subst hi₁eqi₂
             rfl
-          have hcontra : (p₁, k₁) = (p₂, k₂) := by grind
+          rw [hpsi₁eqp₁, hpsi₂eqp₂] at hp₁eqp₂
+          have hcontra : (p₁, k₁) = (p₂, k₂) :=
+            Prod.mk_inj.mpr (And.intro hp₁eqp₂ hk₁eqk₂)
           contradiction }
         { refine List.nodup_iff_pairwise_ne.mp ?_
           apply List.Nodup.of_map Prod.fst
           rw [List.map_fst_zip]
           { exact hpsnodups }
-          { grind } } }
+          { simp [hlent, hlen] } } }
       { intro a ha b hb haneqb
         rw [List.mem_map] at ha
         obtain ⟨⟨p₁, k₁⟩, ha'⟩ := ha
@@ -356,14 +375,10 @@ lemma rw_d (t : ℕ) : ∀ (ps : List ℕ) (exps : List ℕ),
           apply (List.Nodup.getElem_inj_iff hpsnodups).mp
           rw [h11, h22]
           exact hcon
-        have hi₁valid : i₁ < ps.length := by
-            exact List.lt_length_left_of_zip h3
-        have hi₂valid : i₂ < ps.length := by
-            exact List.lt_length_left_of_zip h4
-        have hi₁valid2 : i₁ < exps.length := by
-            exact List.lt_length_right_of_zip h3
-        have hi₂valid2 : i₂ < exps.length := by
-            exact List.lt_length_right_of_zip h4
+        have hi₁valid : i₁ < ps.length := List.lt_length_left_of_zip h3
+        have hi₂valid : i₂ < ps.length := List.lt_length_left_of_zip h4
+        have hi₁valid2 : i₁ < exps.length := List.lt_length_right_of_zip h3
+        have hi₂valid2 : i₂ < exps.length := List.lt_length_right_of_zip h4
         have hieqi : i₁ = i₂ := by
           have hpsi₁ : ps[i₁]'hi₁valid = p₁ := by
             rw [List.getElem_zip] at h33
@@ -411,7 +426,10 @@ theorem odd_k_satisfies (k : ℕ)
         { let kk := k_minus_1 + 1
           let t := (kk + 1).factorization 2
           have htpos : 0 < t := by
-            exact Nat.Prime.factorization_pos_of_dvd (by decide) (by simp) (by grind)
+            apply Nat.Prime.factorization_pos_of_dvd Nat.prime_two
+            { simp }
+            { dsimp [kk]
+              omega }
           let j := (kk + 1) / (2 ^ t)
           have h_div : 2 ^ t ∣ (kk + 1) := by
             exact Nat.ordProj_dvd (kk + 1) 2
@@ -419,7 +437,7 @@ theorem odd_k_satisfies (k : ℕ)
             have hordcompl : j = ordCompl[2] (kk + 1) := by
               rfl
             have htwondvd := @Nat.not_dvd_ordCompl
-                              (kk + 1) _ (Nat.prime_two) (by grind)
+                      (kk + 1) _ Nat.prime_two (Nat.succ_ne_zero kk)
             have htwondvdj : ¬ 2 ∣ j := by
               rw [hordcompl]
               exact htwondvd
@@ -427,7 +445,10 @@ theorem odd_k_satisfies (k : ℕ)
           have hkkeqjt : kk + 1 = j * 2 ^ t := by
               exact Nat.eq_mul_of_div_eq_left h_div rfl
           have hjltkk : j < kk := by
-            have hkkge2 : kk ≥ 2 := by grind
+            have hkkge2 : kk ≥ 2 := by
+              dsimp [kk]
+              have hpos : 0 < k_minus_1 := Nat.pos_of_ne_zero hk1
+              linarith
             have h2le2t : 2 ≤ 2 ^ t := by
               refine Nat.le_self_pow ?_ 2
               linarith
@@ -473,6 +494,9 @@ theorem odd_k_satisfies (k : ℕ)
             apply pow_ne_zero
             apply Nat.Prime.ne_zero
             exact (hps.left (p, k).1 (List.of_mem_zip hpk).left).left
+          have hallp : ∀ i ∈ ps, Nat.Prime i := by
+              intro i hi
+              exact (hps.left i hi).left
           have hneqdx : d x = ((List.range t).map
             (fun i ↦ (2 ^ (t + i)) * j - 2 ^ i * (j + 1) + 1)).prod := by
             dsimp only [x]
@@ -485,7 +509,13 @@ theorem odd_k_satisfies (k : ℕ)
                 | inl h => exact h
                 | inr h => linarith [hCpos] }
               { exact List.nodup_range }
-            have h := rw_d t ps exps (by grind) (by grind) (by grind) (by grind) hexpsnodups
+            have hlent : exps.length = t := by
+              dsimp [exps]
+              rw [List.length_map, List.length_range]
+            have hlen : ps.length = exps.length := by
+              rw [hps.right.left]
+              exact hlent.symm
+            have h := rw_d t ps exps hlen hlent hallp hps.right.right hexpsnodups
             rw [h]
             dsimp [exps]
             rw [List.map_map]
@@ -527,8 +557,14 @@ theorem odd_k_satisfies (k : ℕ)
                 | inl h => exact h
                 | inr h => linarith [hCpos] }
               { exact List.nodup_range }
+            have hlent : (List.map (fun y ↦ 2 * y) exps).length = t := by
+              dsimp [exps]
+              rw [List.length_map, List.length_map, List.length_range]
+            have hlen : ps.length = (List.map (fun y ↦ 2 * y) exps).length := by
+              rw [hps.right.left]
+              exact hlent.symm
             have h := rw_d t ps (List.map (fun y ↦ 2 * y) exps)
-                (by grind) (by grind) (by grind) (by grind) hexpsnodups
+                hlen hlent hallp hps.right.right hexpsnodups
             rw [h]
             dsimp [exps]
             rw [List.map_map, List.map_map]
@@ -637,7 +673,7 @@ theorem odd_k_satisfies (k : ℕ)
 
 -- Finally, we put it all together.
 theorem imo1998_q3 (k : ℕ) :
-                   (k % 2 = 1 ↔ ∃ n : ℕ, n ≠ 0 ∧ d (n ^ 2) = k * d n) := by
-  exact Iff.intro (odd_k_satisfies k) (k_is_odd k)
+                   (k % 2 = 1 ↔ ∃ n : ℕ, n ≠ 0 ∧ d (n ^ 2) = k * d n) :=
+  Iff.intro (odd_k_satisfies k) (k_is_odd k)
 
 end Imo1998Q3
