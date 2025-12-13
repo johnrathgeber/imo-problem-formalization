@@ -8,7 +8,7 @@ import Mathlib.NumberTheory.Divisors
 # IMO 1998 Q3
 
 For any positive integer `n`, let `d(n)` denote the number of positive divisors
-of `n` (including `1` and `n` itself). Determine all positive integers `k` such that
+of `n`. Determine all positive integers `k` such that
 `d(n^2)/d(n) = k` for some `n`.
 
 The answer to this problem is every odd number, so to formalize this,
@@ -132,6 +132,7 @@ theorem k_is_odd (k : ℕ)
   have hkodd : Odd k := (Nat.odd_mul.mp hodd).left
   exact Nat.odd_iff.mp hkodd
 
+-- Proof that we can pick `t` new and distinct primes given a list of `t` primes.
 lemma exists_distinct_primes (t n : ℕ)
                              (hnneq0 : n ≠ 0)
                              (primes : List ℕ) :
@@ -204,6 +205,7 @@ lemma exists_distinct_primes (t n : ℕ)
           rw [List.singleton_append.symm] at halmost
           exact List.nodup_append_comm.mp halmost } }
 
+-- Proof that `d(∏ᵢxᵢ) = ∏ᵢd(xᵢ)` for coprime `xᵢ`'s (repeated mulitiplicity).
 lemma repeated_multiplicity_of_d : ∀ (l : List ℕ)
                     (_hcoprime : l.Pairwise Nat.Coprime),
                     d (l.prod) = (List.map (fun i ↦ d i) l).prod := by
@@ -222,7 +224,10 @@ lemma repeated_multiplicity_of_d : ∀ (l : List ℕ)
         intro n hnintail
         exact hhead n hnintail }
 
-lemma rw_d (t : ℕ) : ∀ (ps : List ℕ) (exps : List ℕ),
+-- Proof that `d(∏ᵢpᵢᵏᵢ) = ∏ᵢ(kᵢ + 1)`. Intuitively, we know `ps` and `exps` form
+-- a factorization of `x`, but Lean doesn't know this, so we have to give this lemma
+-- all the properties of `x`'s factorization without explicitly saying so.
+lemma d_of_factorization (t : ℕ) : ∀ (ps : List ℕ) (exps : List ℕ),
     ps.length = exps.length → exps.length = t → (∀ i ∈ ps, Nat.Prime i)
     → List.Nodup ps → List.Nodup exps
     → d ((ps.zip exps).map (fun (p, e) ↦ p ^ e)).prod =
@@ -407,8 +412,7 @@ lemma rw_d (t : ℕ) : ∀ (ps : List ℕ) (exps : List ℕ),
           subst hcon
           subst hkeqk
           rfl
-        contradiction }
-        }
+        contradiction } }
 
 -- We now prove that every odd number satisifies the equation.
 theorem odd_k_satisfies (k : ℕ)
@@ -431,8 +435,7 @@ theorem odd_k_satisfies (k : ℕ)
             { dsimp [kk]
               omega }
           let j := (kk + 1) / (2 ^ t)
-          have h_div : 2 ^ t ∣ (kk + 1) := by
-            exact Nat.ordProj_dvd (kk + 1) 2
+          have h_div : 2 ^ t ∣ (kk + 1) := Nat.ordProj_dvd (kk + 1) 2
           have hjodd : Odd j := by
             have hordcompl : j = ordCompl[2] (kk + 1) := by
               rfl
@@ -442,8 +445,8 @@ theorem odd_k_satisfies (k : ℕ)
               rw [hordcompl]
               exact htwondvd
             exact Nat.odd_iff.mpr (Nat.two_dvd_ne_zero.mp htwondvdj)
-          have hkkeqjt : kk + 1 = j * 2 ^ t := by
-              exact Nat.eq_mul_of_div_eq_left h_div rfl
+          have hkkeqjt : kk + 1 = j * 2 ^ t :=
+            Nat.eq_mul_of_div_eq_left h_div rfl
           have hjltkk : j < kk := by
             have hkkge2 : kk ≥ 2 := by
               dsimp [kk]
@@ -515,7 +518,8 @@ theorem odd_k_satisfies (k : ℕ)
             have hlen : ps.length = exps.length := by
               rw [hps.right.left]
               exact hlent.symm
-            have h := rw_d t ps exps hlen hlent hallp hps.right.right hexpsnodups
+            have h := d_of_factorization
+                t ps exps hlen hlent hallp hps.right.right hexpsnodups
             rw [h]
             dsimp [exps]
             rw [List.map_map]
@@ -563,7 +567,7 @@ theorem odd_k_satisfies (k : ℕ)
             have hlen : ps.length = (List.map (fun y ↦ 2 * y) exps).length := by
               rw [hps.right.left]
               exact hlent.symm
-            have h := rw_d t ps (List.map (fun y ↦ 2 * y) exps)
+            have h := d_of_factorization t ps (List.map (fun y ↦ 2 * y) exps)
                 hlen hlent hallp hps.right.right hexpsnodups
             rw [h]
             dsimp [exps]
@@ -666,10 +670,8 @@ theorem odd_k_satisfies (k : ℕ)
           rw [hkj]
           rw [mul_comm (2 ^ t * j - 1), mul_assoc, mul_comm (d nⱼ)]
           rw [htelescopes.symm]
-          rw [hnⱼ.right]
-          ring
-        }
-      }
+          rw [hnⱼ.right, mul_comm, mul_assoc]
+        } }
 
 -- Finally, we put it all together.
 theorem imo1998_q3 (k : ℕ) :
