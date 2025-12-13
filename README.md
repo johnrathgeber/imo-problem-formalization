@@ -1,12 +1,20 @@
 # A proof of IMO 1998 Q3, formalized in Lean.
 
+This repository contains a machine-checked proof of IMO 1998 Problem 3 using the Lean 4 theorem prover.
+* The Goal: Formally verify the set of integers $k$ such that $d(n^2)/d(n) = k$.
+* The Code: The complete formal logic is contained in `ImoProblemFormalization/Imo1998Q3.lean`.
+* The Math: A human-readable version of the proof logic is provided below.
+
+## Problem:
 For any positive integer $n$, let $d(n)$ denote the number of positive divisors
 of $n$. Determine all positive integers $k$ such that $d(n^2)/d(n) = k$ for some $n$.
 
-The answer to this problem is $k$ can be any odd number. To formalize this,
+## Solution:
+The answer to this problem is $k$ can be any positive odd integer. To formalize this,
 we must prove that if a $k$ satisfies $d(n^2)/d(n) = k$ for some $n$, then
-$k$ is odd, and also that if $k$ is odd, it satisfies $d(n^2)/d(n) = k$ for some $n$.
+$k$ is odd, and also that if $k$ is positive odd integer, it satisfies $d(n^2)/d(n) = k$ for some $n$.
 
+## Proof:
 We follow Evan Chen's proof: <https://web.evanchen.cc/exams/IMO-1998-notes.pdf>.
 
 Throughout this proof, we will use the following facts from number theory:
@@ -32,7 +40,7 @@ $$k = \frac{d(n^2)}{d(n)} = \prod_{i=1}^t\frac{2k_i + 1}{k_i + 1}$$
 
 Since the numerator is always odd, $k$ is always odd. This concludes the proof of necessity.
 
-### Sufficiency: $k \equiv 1 \pmod{2} \rightarrow (\exists n > 0, d(n^2)/d(n) = k)$.
+### Sufficiency: For positive $k$, $k \equiv 1 \pmod{2} \rightarrow (\exists n > 0, d(n^2)/d(n) = k)$.
 
 We prove this by strong induction.
 
@@ -48,7 +56,7 @@ We now aim to construct a number $x$ such that $d((n_jx)^2)/d(n_jx) = k$. Let
 
 $$x = \prod_{i=0}^{t-1} p_i^{2^{t + i}j - 2^i(j + 1)}$$
 
-where each $p_i$ is prime, distinct, and does not appear as a prime in $n_j$'s prime factorization. This is justified by the infinitude of primes. We also have that $d(p_i^{2^{t + i}j - 2^i(j + 1)}) = (2^{t + i}j - 2^i(j + 1)) + 1$ for all $i$, as $2^{t + i}j - 2^i(j + 1) \geq 1$ for all $i$. Then we can compute
+where each $p_i$ is prime, distinct, and does not appear as a prime in $n_j$'s prime factorization. This is justified by the infinitude of primes. We also have that $d(p_i^{2^{t + i}j - 2^i(j + 1)}) = (2^{t + i}j - 2^i(j + 1)) + 1$ for all $i$, as $2^{t + i}j - 2^i(j + 1) \geq 1$ for all $i$. We can now compute
 
 $$\frac{d(x^2)}{d(x)} = \prod_{i=0}^{t-1}\frac{2(2^{t + i}j - 2^i(j + 1)) + 1}{(2^{t + i}j - 2^i(j + 1)) + 1} = \prod_{i=0}^{t-1}\frac{2^{t + i + 1}j - 2^{i + 1}(j + 1) + 1}{2^{t+i}j - 2^i(j + 1) + 1}$$
 
@@ -64,7 +72,7 @@ $$k = 2^tj - 1 = j \cdot \frac{d(x^2)}{d(x)} = \frac{d(n_j^2)d(x^2)}{d(n_j)d(x)}
 
 where the last equality holds because each prime in $x$'s factorization does not appear in $n_j$'s factorization, so $x$ and $n_j$ are coprime, and similarly for $x^2$ and $n_j^2$. This concludes the proof of sufficiency.
 
-Since we have proven both necessity and sufficiency, we know
+Since we have proven both necessity and sufficiency, we know for any positive integer $k$,
 
 $$k \equiv 1 \pmod{2} \iff \exists n > 0, \frac{d(n^2)}{d(n)} = k$$
 
