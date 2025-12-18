@@ -1,9 +1,10 @@
 # A proof of IMO 1998 Q3, formalized in Lean.
 
 This repository contains a machine-checked proof of IMO 1998 Problem 3 using the Lean 4 theorem prover.
-* The Goal: Formally verify the set of integers $k$ such that $d(n^2)/d(n) = k$.
-* The Code: The complete formal logic is contained in `ImoProblemFormalization/Imo1998Q3.lean`.
-* The Math: A human-readable version of the proof logic is provided below.
+* Goal: Formally verify the set of integers $k$ such that $d(n^2)/d(n) = k$.
+* Code: The complete formal logic is contained in `ImoProblemFormalization/Imo1998Q3.lean`.
+* Math: A human-readable version of the proof logic is provided below.
+* Contribution: This formalization has been merged into the official Compfiles repository and is published at [Compfiles: IMO 1998 P3](https://dwrensha.github.io/compfiles/problems/Compfiles.Imo1998P3.html).
 
 ## Problem:
 For any positive integer $n$, let $d(n)$ denote the number of positive divisors
